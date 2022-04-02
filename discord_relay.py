@@ -1,8 +1,10 @@
+import asyncio
 import os
 import email
 from email import policy
 
 import requests
+from aiosmtpd.controller import Controller
 from aiosmtpd.handlers import Message
 from html2text import html2text
 
@@ -67,3 +69,16 @@ class DiscordRelayHandler(Message):
                 "inline": inline
             }
         return r
+
+async def amain(loop):
+    handler = DiscordRelayHandler()
+    cont = Controller(handler, hostname='', port=8025)
+    cont.start()
+
+if __name__ == '__main__':
+    loop = asyncio.get_event_loop()
+    loop.create_task(amain(loop=loop))
+    try:
+        loop.run_forever()
+    except KeyboardInterrupt:
+        exit(0)

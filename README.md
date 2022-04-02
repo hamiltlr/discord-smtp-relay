@@ -3,8 +3,13 @@ This project is a very simple relay from SMTP to a Discord webhook. This allows 
 
 This is currently a work-in-progress. 
 
+# Environment variables
+| Variable    | Description          | Example                                          |
+|-------------|----------------------|--------------------------------------------------|
+| WEBHOOK_URL | Discord webhook URL. | `https://discord.com/api/webhooks/xxxxxx/yyyyyy` |
+
 # Running
 To run:
 ```
-python -m aiosmtpd -n --class discord_relay.DiscordRelayHandler
+python discord_relay.py
 ```
