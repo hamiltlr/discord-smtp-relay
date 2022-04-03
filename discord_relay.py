@@ -79,7 +79,7 @@ async def amain(loop):
     cont = Controller(handler,
                       hostname='',
                       port=8025,
-                      auth_required=True)
+                      auth_required=False)
     cont.start()
 
 if __name__ == '__main__':
