@@ -9,8 +9,8 @@ from aiosmtpd.handlers import Message
 from html2text import html2text
 
 class DiscordRelayHandler(Message):
-    def __init__(self):
-        self.webhook_url = os.getenv('WEBHOOK_URL')
+    def __init__(self, webhook_url):
+        self.webhook_url = webhook_url
         super().__init__(email.message.EmailMessage)
 
     # We need to override this method in order to define the policy on the message_from_xxxx calls. If this isn't done, you get a Compat32 error when attempting to get the email body.
@@ -71,8 +71,15 @@ class DiscordRelayHandler(Message):
         return r
 
 async def amain(loop):
-    handler = DiscordRelayHandler()
-    cont = Controller(handler, hostname='', port=8025)
+    # Retrieve the environment variables
+    WEBHOOK_URL = os.getenv('WEBHOOK_URL')
+
+    handler = DiscordRelayHandler(WEBHOOK_URL)
+
+    cont = Controller(handler,
+                      hostname='',
+                      port=8025,
+                      auth_required=True)
     cont.start()
 
 if __name__ == '__main__':
