@@ -1,11 +1,13 @@
 import asyncio
 import os
+import ssl
 import email
 from email import policy
 
 import requests
 from aiosmtpd.controller import Controller
 from aiosmtpd.handlers import Message
+from aiosmtpd.smtp import AuthResult, LoginPassword
 from html2text import html2text
 
 class DiscordRelayHandler(Message):
@@ -70,16 +72,48 @@ class DiscordRelayHandler(Message):
             }
         return r
 
+class Authenticator:
+    def __init__(self, smtp_username, smtp_password):
+        self.smtp_username = smtp_username
+        self.smtp_password = smtp_password
+
+    def __call__(self, server, session, envelope, mechanism, auth_data):
+        print("Authenticator called")
+
+        fail_nothandled = AuthResult(success=False, handled=False)
+        if mechanism not in ("LOGIN", "PLAIN"):
+            return fail_nothandled
+        if not isinstance(auth_data, LoginPassword):
+            return fail_nothandled
+
+        username = auth_data.login
+        password = auth_data.password
+
+        if (username == self.smtp_username and
+            password == self.smtp_password):
+               print("auth success")
+               return AuthResult(success=True)
+        return fail_nothandled
+
 async def amain(loop):
     # Retrieve the environment variables
     WEBHOOK_URL = os.getenv('WEBHOOK_URL')
+    SMTP_USERNAME = os.getenv('SMTP_USERNAME')
+    SMTP_PASSWORD = os.getenv('SMTP_PASSWORD')
+    TLS_CERT_CHAIN = os.getenv('TLS_CERT_CHAIN')
+    TLS_KEY = os.getenv('TLS_KEY')
 
     handler = DiscordRelayHandler(WEBHOOK_URL)
+    context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+    context.load_cert_chain(TLS_CERT_CHAIN, TLS_KEY)
+    auth = Authenticator(SMTP_USERNAME, SMTP_PASSWORD)
 
     cont = Controller(handler,
                       hostname='',
                       port=8025,
-                      auth_required=False)
+                      ssl_context=context,
+                      authenticator=auth,
+                      auth_required=True)
     cont.start()
 
 if __name__ == '__main__':
