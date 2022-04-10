@@ -1,3 +1,4 @@
+print("HI")
 import asyncio
 import os
 import ssl
@@ -82,13 +83,14 @@ class Authenticator:
         if not isinstance(auth_data, LoginPassword):
             return fail_nothandled
 
-        username = auth_data.login
-        password = auth_data.password
+        username = auth_data.login.decode()
+        password = auth_data.password.decode()
 
         if (username == self.smtp_username and
             password == self.smtp_password):
-               return AuthResult(success=True)
-        return fail_nothandled
+            return AuthResult(success=True)
+        else:
+            return AuthResult(success=False)
 
 async def amain(loop):
     # Retrieve the environment variables
