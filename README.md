@@ -8,7 +8,7 @@ This is currently a work-in-progress. At the moment, it supports a few options f
 
 It currently only allows one username/password combination, which are set by environment variables (see below). If you don't need authentication or TLS, simply don't set those variables (SMTP_USERNAME/PASSWORD or TLS_CERT/KEY respectively).
 
-This is designed for use internally only, specifically within a Docker network. I would not recommend exposing this to the internet (or any untrusted network) in its current form.
+This is designed for use internally only, specifically within a Docker network. I would not recommend exposing this to the internet (or any untrusted network) in its current form, especially if not using TLS.
 
 # Environment variables
 | Variable    | Description          | Example                                          |
