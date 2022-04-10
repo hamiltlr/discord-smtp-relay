@@ -1,4 +1,3 @@
-print("HI")
 import asyncio
 import os
 import ssl
