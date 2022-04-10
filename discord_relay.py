@@ -57,8 +57,6 @@ class DiscordRelayHandler(Message):
                 }
             ]
         }
-        print(f"webhook_url = {self.webhook_url}")
-        print(f"webhook_data = {webhook_data}")
 
         r=requests.post(self.webhook_url,json=webhook_data)
 
@@ -78,8 +76,6 @@ class Authenticator:
         self.smtp_password = smtp_password
 
     def __call__(self, server, session, envelope, mechanism, auth_data):
-        print("Authenticator called")
-
         fail_nothandled = AuthResult(success=False, handled=False)
         if mechanism not in ("LOGIN", "PLAIN"):
             return fail_nothandled
@@ -91,7 +87,6 @@ class Authenticator:
 
         if (username == self.smtp_username and
             password == self.smtp_password):
-               print("auth success")
                return AuthResult(success=True)
         return fail_nothandled
 
@@ -111,7 +106,8 @@ async def amain(loop):
     cont = Controller(handler,
                       hostname='',
                       port=8025,
-                      ssl_context=context,
+                      tls_context=context,
+                      auth_require_tls=True,
                       authenticator=auth,
                       auth_required=True)
     cont.start()
