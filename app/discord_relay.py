@@ -92,6 +92,7 @@ class Authenticator:
             password == self.smtp_password):
             return success
         else:
+            print(f"WARNING: Attempted login for user '{username}'. Incorrect password specified.")
             return fail_nothandled
 
 def main():
