@@ -1,7 +1,7 @@
-import asyncio
 import os
 import ssl
 import email
+import signal
 from email import policy
 
 import requests
@@ -91,9 +91,10 @@ class Authenticator:
             password == self.smtp_password):
             return success
         else:
+            print(f"WARNING: Attempted login for user '{username}'. Incorrect password specified.")
             return fail_nothandled
 
-async def amain(loop):
+def main():
     # Retrieve the environment variables
     WEBHOOK_URL = os.getenv('WEBHOOK_URL')
     SMTP_USERNAME = os.getenv('SMTP_USERNAME')
@@ -102,7 +103,8 @@ async def amain(loop):
     TLS_KEY = os.getenv('TLS_KEY')
 
     if WEBHOOK_URL is None:
-        raise EnvVarNotFoundException("WEBHOOK_URL")
+        print(f"Variable 'WEBHOOK_URL' not found")
+        exit(1)
 
     handler = DiscordRelayHandler(WEBHOOK_URL)
 
@@ -136,26 +138,11 @@ async def amain(loop):
                       authenticator=auth,
                       auth_required=require_auth_setting)
     cont.start()
-
-class EnvVarNotFoundException(Exception):
-  pass
-
-def exception_handler(loop, context):
-    # first, handle with default handler
-    loop.default_exception_handler(context)
-    exception = context.get('exception')
-    
-    if isinstance(exception, EnvVarNotFoundException):
-        print(f"Variable '{str(exception)}' not found")
-        loop.stop()
-        exit(1)
-    elif isinstance(exception, Exception):
-        print(f"Got {str(type(exception))}: {str(exception)}")
-        loop.stop()
-        exit(99)
+    # Wait for SIGINT or SIGQUIT to stop the server
+    sig = signal.sigwait([signal.SIGINT, signal.SIGQUIT])
+    print("Shutting down server...")
+    cont.stop()
 
 if __name__ == '__main__':
-    loop = asyncio.get_event_loop()
-    loop.set_exception_handler(exception_handler)
-    loop.create_task(amain(loop=loop))
-    loop.run_forever()
+    main()
+
