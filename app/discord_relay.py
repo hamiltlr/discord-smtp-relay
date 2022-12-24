@@ -8,12 +8,19 @@ import requests
 from aiosmtpd.controller import Controller
 from aiosmtpd.handlers import Message
 from aiosmtpd.smtp import AuthResult, LoginPassword
+from discord.ext import commands, tasks
+import discord
 from html2text import html2text
+from dotenv import load_dotenv
+
 
 class DiscordRelayHandler(Message):
-    def __init__(self, webhook_url):
+    def __init__(self, webhook_url, client):
         self.webhook_url = webhook_url
+        self.client = client
+        
         super().__init__(email.message.EmailMessage)
+    #def __init__(self, webhook_url):
 
     # We need to override this method in order to define the policy on the message_from_xxxx calls. If this isn't done, you get a Compat32 error when attempting to get the email body.
     # It would be nicer if the aiosmtpd Message handler provided an option to specify a policy, but it doesn't as far as I can tell.
@@ -28,6 +35,7 @@ class DiscordRelayHandler(Message):
                 'Expected str or bytes, got {}'.format(type(data)))
             message = email.message_from_string(data, self.message_class, policy=policy.default)
         return message
+    #def prepare_message(self, session, envelope):
 
     def handle_message(self, message):
         # Extract the message body as a string
@@ -37,10 +45,32 @@ class DiscordRelayHandler(Message):
         msg_body = message.get_body(('html','plain')).get_content()
         msg_body = html2text(msg_body)
 
-        self.notify_discord(message.get('to'),
+        self.notify_discord_bot(message.get('to'),
                             message.get('from'),
                             message.get('subject'),
                             msg_body)
+        
+        #self.notify_discord(message.get('to'),
+        #                    message.get('from'),
+        #                    message.get('subject'),
+        #                    msg_body)
+    #def handle_message(self, message):
+
+
+    def notify_discord_bot(self, to_addr, from_addr, subject, body):
+        self.client.subject = subject
+        self.client.embeds = discord.Embed(title=subject,description="desc")
+        self.client.embeds.add_field(name="To",value=to_addr,inline=False)
+        self.client.embeds.add_field(name="From",value=from_addr)
+        self.client.embeds.add_field(name="Subject",value=subject)
+        #if body is not None:
+        #    self.client.embeds.add_field(name="Body",value=body)
+        self.client.msg_sent = False
+        #channel = self.client.get_channel(1048053896754516089)
+        #print(f'sending a message with {subject}')
+        #await channel.send(subject)
+        #print(f'sent a message with {subject}')
+
 
     def notify_discord(self, to_addr, from_addr, subject, body):
         webhook_data = { 
@@ -59,6 +89,7 @@ class DiscordRelayHandler(Message):
         }
 
         r=requests.post(self.webhook_url,json=webhook_data)
+    #def notify_discord(self, to_addr, from_addr, subject, body):
 
     # This helper function constructs a dictionary in the format of a "field" object
     # in the Discord webhooks API
@@ -69,6 +100,10 @@ class DiscordRelayHandler(Message):
                 "inline": inline
             }
         return r
+    #def discord_field(self, name, value="", inline=False):
+
+    
+    
 
 class Authenticator:
     def __init__(self, smtp_username, smtp_password):
@@ -94,9 +129,33 @@ class Authenticator:
             print(f"WARNING: Attempted login for user '{username}'. Incorrect password specified.")
             return fail_nothandled
 
+class MyClient(commands.Bot):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.msg_sent = False
+        self.subject = "Its 7 am"
+        self.embeds = None
+
+    async def on_ready(self):
+        channel = client.get_channel(1048053896754516089)  # replace with channel ID that you want to send to
+        print(f'{client.user} has connected to discord')
+        await self.timer.start(channel)
+
+    @tasks.loop(seconds=1)
+    async def timer(self, channel):
+        if not self.msg_sent:
+            if self.embeds is not None:
+                await channel.send(embed=self.embeds)
+            else:
+                await channel.send(self.subject)
+            self.msg_sent = True    
+
 def main():
     # Retrieve the environment variables
+    load_dotenv()
     WEBHOOK_URL = os.getenv('WEBHOOK_URL')
+    DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
     SMTP_USERNAME = os.getenv('SMTP_USERNAME')
     SMTP_PASSWORD = os.getenv('SMTP_PASSWORD')
     TLS_CERT_CHAIN = os.getenv('TLS_CERT_CHAIN')
@@ -106,7 +165,9 @@ def main():
         print(f"Variable 'WEBHOOK_URL' not found")
         exit(1)
 
-    handler = DiscordRelayHandler(WEBHOOK_URL)
+    
+
+    handler = DiscordRelayHandler(WEBHOOK_URL,client)
 
     require_auth_setting = False
     require_tls_setting = False
@@ -138,11 +199,24 @@ def main():
                       authenticator=auth,
                       auth_required=require_auth_setting)
     cont.start()
+    
+
+    client.run(DISCORD_TOKEN)
     # Wait for SIGINT or SIGQUIT to stop the server
     sig = signal.sigwait([signal.SIGINT, signal.SIGQUIT])
     print("Shutting down server...")
     cont.stop()
 
+
+
+
+#@client.event
+#async def on_ready():
+#    print(f'{client.user} has connected to Discord!')
+
+
+
 if __name__ == '__main__':
+    client = MyClient(command_prefix='!')
     main()
 

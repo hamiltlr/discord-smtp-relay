@@ -9,9 +9,7 @@
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/app/discord_relay.py",
-            "console": "integratedTerminal",
-            "env": {
-            }
+            "console": "integratedTerminal"
         }
     ]
 }
