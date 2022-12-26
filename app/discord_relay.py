@@ -1,4 +1,5 @@
 import os
+import io
 import ssl
 import email
 import signal
@@ -45,10 +46,27 @@ class DiscordRelayHandler(Message):
         msg_body = message.get_body(('html','plain')).get_content()
         msg_body = html2text(msg_body)
 
+        attachments = []
+        for attachment in message.iter_attachments():
+            if attachment.get_content_disposition() == "attachment":
+
+                file_obj = io.BytesIO()
+                file_obj = attachment.get_payload(decode=True)
+                filename = attachment.get_filename()
+
+                discordfile = discord.File(io.BytesIO(file_obj),filename=filename)
+                attachments.append(discordfile)
+                if "content-id" not in attachment:
+                    #cid = generate_id()
+                    #attachment["content-id"] = f"<{cid}>"
+                    print("attactment")
+
+
         self.notify_discord_bot(message.get('to'),
                             message.get('from'),
                             message.get('subject'),
-                            msg_body)
+                            msg_body,
+                            attachments)
         
         #self.notify_discord(message.get('to'),
         #                    message.get('from'),
@@ -57,14 +75,18 @@ class DiscordRelayHandler(Message):
     #def handle_message(self, message):
 
 
-    def notify_discord_bot(self, to_addr, from_addr, subject, body):
+    def notify_discord_bot(self, to_addr, from_addr, subject, body,attachments = None):
+        # Set the properties fo the bot client to values that will be sent to discord.
         self.client.subject = subject
         self.client.embeds = discord.Embed(title=subject,description="desc")
         self.client.embeds.add_field(name="To",value=to_addr,inline=False)
         self.client.embeds.add_field(name="From",value=from_addr)
         self.client.embeds.add_field(name="Subject",value=subject)
-        #if body is not None:
-        #    self.client.embeds.add_field(name="Body",value=body)
+        if body is not None:
+            self.client.embeds.add_field(name="Body",value=body)
+        
+
+        self.client.files = attachments
         self.client.msg_sent = False
         #channel = self.client.get_channel(1048053896754516089)
         #print(f'sending a message with {subject}')
@@ -136,6 +158,7 @@ class MyClient(commands.Bot):
         self.msg_sent = False
         self.subject = "Its 7 am"
         self.embeds = None
+        self.files = None
 
     async def on_ready(self):
         channel = client.get_channel(1048053896754516089)  # replace with channel ID that you want to send to
@@ -144,11 +167,13 @@ class MyClient(commands.Bot):
 
     @tasks.loop(seconds=1)
     async def timer(self, channel):
+       
         if not self.msg_sent:
+
             if self.embeds is not None:
-                await channel.send(embed=self.embeds)
+                await channel.send(embed=self.embeds,files=self.files)
             else:
-                await channel.send(self.subject)
+                await channel.send(self.subject,files=self.files)
             self.msg_sent = True    
 
 def main():
