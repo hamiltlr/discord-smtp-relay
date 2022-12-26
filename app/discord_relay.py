@@ -54,13 +54,10 @@ class DiscordRelayHandler(Message):
                 file_obj = attachment.get_payload(decode=True)
                 filename = attachment.get_filename()
 
+                #create a discord file from the email attachment payload
                 discordfile = discord.File(io.BytesIO(file_obj),filename=filename)
                 attachments.append(discordfile)
-                if "content-id" not in attachment:
-                    #cid = generate_id()
-                    #attachment["content-id"] = f"<{cid}>"
-                    print("attactment")
-
+        #for attachment in message.iter_attachments():
 
         self.notify_discord_bot(message.get('to'),
                             message.get('from'),
@@ -68,10 +65,6 @@ class DiscordRelayHandler(Message):
                             msg_body,
                             attachments)
         
-        #self.notify_discord(message.get('to'),
-        #                    message.get('from'),
-        #                    message.get('subject'),
-        #                    msg_body)
     #def handle_message(self, message):
 
 
@@ -88,11 +81,6 @@ class DiscordRelayHandler(Message):
 
         self.client.files = attachments
         self.client.msg_sent = False
-        #channel = self.client.get_channel(1048053896754516089)
-        #print(f'sending a message with {subject}')
-        #await channel.send(subject)
-        #print(f'sent a message with {subject}')
-
 
     def notify_discord(self, to_addr, from_addr, subject, body):
         webhook_data = { 
