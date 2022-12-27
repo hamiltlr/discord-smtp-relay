@@ -235,7 +235,7 @@ def main():
         exit(1)
 
     cp = ConfigParser()
-    filename = {"config.ini","conf/config.ini"}
+    filename = {"config.ini","/conf/config.ini","/app/config.ini","./config.ini"}
     dataset = cp.read(filename)
 
     try:
@@ -278,7 +278,7 @@ def main():
 
     except Exception as ex:
         print("Error loading config: " + str(ex))
-        pass
+        exit(1)
 
     handler = DiscordRelayHandler(WEBHOOK_URL,client,discordchannels)
 
