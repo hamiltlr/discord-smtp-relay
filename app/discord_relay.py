@@ -70,17 +70,29 @@ class DiscordRelayHandler(Message):
 
     def notify_discord_bot(self, to_addr, from_addr, subject, body,attachments = None):
         # Set the properties fo the bot client to values that will be sent to discord.
+        print(f'Email Subject: {subject}')
         self.client.subject = subject
         self.client.embeds = discord.Embed(title=subject,description="desc")
         self.client.embeds.add_field(name="To",value=to_addr,inline=False)
+        print(f'Email To: {to_addr}')
         self.client.embeds.add_field(name="From",value=from_addr)
+        print(f'Email From: {from_addr}')
         self.client.embeds.add_field(name="Subject",value=subject)
         if body is not None:
-            self.client.embeds.add_field(name="Body",value=body)
+            chunklength = 1000
+            chunks = [body[i:i+chunklength] for i in range(0,len(body),chunklength)]
+            print('Email Body length: %s = %s chunks' % (len(body),len(chunks)))
+            chunknum = 1
+            for chunk in chunks:
+                self.client.embeds.add_field(name="Body-%s" %chunknum,value=chunk)
+                chunknum += 1
         
-
+        print('Adding Attachments: %s' % len(attachments) )
         self.client.files = attachments
+        
+        #reset flag
         self.client.msg_sent = False
+    #def notify_discord_bot(self, to_addr, from_addr, subject, body,attachments = None):
 
     def notify_discord(self, to_addr, from_addr, subject, body):
         webhook_data = { 
