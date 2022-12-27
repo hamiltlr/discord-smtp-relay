@@ -239,7 +239,7 @@ def main():
     dataset = cp.read(filename)
 
     try:
-        if len(dataset) != 1:
+        if len(dataset) == 0:
             raise ValueError( "Failed to open/find all files")
 
         #smtp section
