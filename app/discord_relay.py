@@ -1,5 +1,6 @@
 import os
 import io
+import re
 import ssl
 import email
 import signal
@@ -13,12 +14,18 @@ from discord.ext import commands, tasks
 import discord
 from html2text import html2text
 from dotenv import load_dotenv
-
+try:
+    #python 3+
+    from configparser import ConfigParser
+except:
+    # Python 2.7
+    from ConfigParser import ConfigParser
 
 class DiscordRelayHandler(Message):
-    def __init__(self, webhook_url, client):
+    def __init__(self, webhook_url, client,discordchannels):
         self.webhook_url = webhook_url
         self.client = client
+        self.discordchannels = discordchannels
         
         super().__init__(email.message.EmailMessage)
     #def __init__(self, webhook_url):
@@ -59,7 +66,12 @@ class DiscordRelayHandler(Message):
                 attachments.append(discordfile)
         #for attachment in message.iter_attachments():
 
-        self.notify_discord_bot(message.get('to'),
+        channelid = self.get_discord_channel(message.get('to'),
+                            message.get('from'),
+                            message.get('subject'))
+
+        self.notify_discord_bot(channelid,
+                            message.get('to'),
                             message.get('from'),
                             message.get('subject'),
                             msg_body,
@@ -68,9 +80,10 @@ class DiscordRelayHandler(Message):
     #def handle_message(self, message):
 
 
-    def notify_discord_bot(self, to_addr, from_addr, subject, body,attachments = None):
+    def notify_discord_bot(self, channelid,to_addr, from_addr, subject, body,attachments = None):
         # Set the properties fo the bot client to values that will be sent to discord.
         print(f'Email Subject: {subject}')
+        self.client.channelid = channelid
         self.client.subject = subject
         self.client.embeds = discord.Embed(title=subject,description="desc")
         self.client.embeds.add_field(name="To",value=to_addr,inline=False)
@@ -93,6 +106,33 @@ class DiscordRelayHandler(Message):
         #reset flag
         self.client.msg_sent = False
     #def notify_discord_bot(self, to_addr, from_addr, subject, body,attachments = None):
+
+    def get_discord_channel(self,to_addr, from_addr, subject):
+        """
+        Gets the discord channel from the message details
+        Uses regex on the from, to or subject, depending on what is in the config,
+        to determine which channel ID to send a message to.
+
+        """
+        for discord in self.discordchannels:
+            if "to" in self.discordchannels[discord]:
+                # look for to regex in to_addr
+                if re.match(self.discordchannels[discord].get("to"),to_addr):
+                    return int(self.discordchannels[discord].get("channelid"))
+            if "from" in self.discordchannels[discord]:
+                # look for to regex in to_addr
+                if re.match(self.discordchannels[discord].get("from"),from_addr):
+                    return int(self.discordchannels[discord].get("channelid"))
+            if "subject" in self.discordchannels[discord]:
+                # look for to regex in to_addr
+                if re.match(self.discordchannels[discord].get("subject"),subject):
+                    return int(self.discordchannels[discord].get("channelid"))
+        #for discord in self.discordchannels:
+        print("Returning default channel id an no rules found")
+        return int(self.discordchannels("default","channelid"))
+        
+
+    #def get_discord_channel():
 
     def notify_discord(self, to_addr, from_addr, subject, body):
         webhook_data = { 
@@ -156,24 +196,30 @@ class MyClient(commands.Bot):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.msg_sent = False
-        self.subject = "Its 7 am"
+        self.subject = "I'm ALIVE"
         self.embeds = None
         self.files = None
+        self.channelid = None
+        self.channel = None
+        
+        
 
     async def on_ready(self):
-        channel = client.get_channel(1048053896754516089)  # replace with channel ID that you want to send to
+        self.channel = client.get_channel(self.channelid)  # replace with channel ID that you want to send to
         print(f'{client.user} has connected to discord')
-        await self.timer.start(channel)
+        await self.timer.start()
 
     @tasks.loop(seconds=1)
-    async def timer(self, channel):
+    async def timer(self):
        
         if not self.msg_sent:
+            if self.channel is None or self.channel.id != self.channelid:
+                self.channel = client.get_channel(self.channelid)
 
             if self.embeds is not None:
-                await channel.send(embed=self.embeds,files=self.files)
+                await self.channel.send(embed=self.embeds,files=self.files)
             else:
-                await channel.send(self.subject,files=self.files)
+                await self.channel.send(self.subject,files=self.files)
             self.msg_sent = True    
 
 def main():
@@ -181,8 +227,6 @@ def main():
     load_dotenv()
     WEBHOOK_URL = os.getenv('WEBHOOK_URL')
     DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-    SMTP_USERNAME = os.getenv('SMTP_USERNAME')
-    SMTP_PASSWORD = os.getenv('SMTP_PASSWORD')
     TLS_CERT_CHAIN = os.getenv('TLS_CERT_CHAIN')
     TLS_KEY = os.getenv('TLS_KEY')
 
@@ -190,9 +234,53 @@ def main():
         print(f"Variable 'WEBHOOK_URL' not found")
         exit(1)
 
-    
+    cp = ConfigParser()
+    filename = {"config.ini","conf/config.ini"}
+    dataset = cp.read(filename)
 
-    handler = DiscordRelayHandler(WEBHOOK_URL,client)
+    try:
+        if len(dataset) != 1:
+            raise ValueError( "Failed to open/find all files")
+
+        #smtp section
+        smtp_items = dict(cp.items( "smtp" ))
+        SMTP_USERNAME = smtp_items.get("username",None)
+        SMTP_PASSWORD = smtp_items.get("password",None)
+        SMTP_PORT = smtp_items.get("port","8025")
+        print("Set smtp username and password from config")
+
+        if os.getenv('SMTP_USERNAME') is not None: 
+            SMTP_USERNAME = os.getenv('SMTP_USERNAME')
+            print("Override SMTP_USERNAME from env variable")
+        if os.getenv('SMTP_PASSWORD') is not None: 
+            SMTP_PASSWORD = os.getenv('SMTP_PASSWORD')
+            print("Override SMTP_PASSWORD from env variable")
+
+        defaultchannelid = cp.get("default","channelid")
+        #sets client default channel id
+        client.channelid = int(defaultchannelid)
+
+        #emails - discord channel Sections.
+        discordchannels = {}
+        for section in cp.sections():
+            if section != 'smtp':
+                sectiondict = dict(cp.items(section))
+                print("Section Name: %s" % section)
+                print("Section Channel ID: %s" % sectiondict.get("channelid"))
+                if "channelid" not in sectiondict:
+                    sectiondict["channelid"] = int(defaultchannelid)
+                print("Section From: %s" % sectiondict.get("from",None) )
+                print("Section To: %s" % sectiondict.get("to",None) )
+                print("Section Subject: %s" % sectiondict.get("subject",None) )
+                discordchannels[section] = sectiondict
+            #if section != 'smtp':  
+        #for section in cp.sections(): 
+
+    except Exception as ex:
+        print("Error loading config: " + str(ex))
+        pass
+
+    handler = DiscordRelayHandler(WEBHOOK_URL,client,discordchannels)
 
     require_auth_setting = False
     require_tls_setting = False
@@ -218,7 +306,7 @@ def main():
 
     cont = Controller(handler,
                       hostname='',
-                      port=8025,
+                      port=SMTP_PORT,
                       tls_context=context,
                       auth_require_tls=require_tls_setting,
                       authenticator=auth,
