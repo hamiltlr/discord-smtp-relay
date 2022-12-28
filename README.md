@@ -103,7 +103,7 @@ services:
 
 The above compose file has authentication turned off, left in the env variables to show the format.
 The DISCORD_TOKEN is passed in from a .env file where the format is:
-DISCORD_TOKEN=<token from discord bot>
+DISCORD_TOKEN='token from discord bot'
 
 The config.ini file is being passed in directly as well. 
 
