@@ -22,10 +22,10 @@ except:
     from ConfigParser import ConfigParser
 
 class DiscordRelayHandler(Message):
-    def __init__(self, webhook_url, client,discordchannels):
-        self.webhook_url = webhook_url
+    def __init__(self, client,discordchannels,defaultchannelid):
         self.client = client
         self.discordchannels = discordchannels
+        self.defaultchannelid = defaultchannelid
         
         super().__init__(email.message.EmailMessage)
     #def __init__(self, webhook_url):
@@ -54,6 +54,7 @@ class DiscordRelayHandler(Message):
         msg_body = html2text(msg_body)
 
         attachments = []
+        print(f'Processing any message attachments')
         for attachment in message.iter_attachments():
             if attachment.get_content_disposition() == "attachment":
 
@@ -66,9 +67,12 @@ class DiscordRelayHandler(Message):
                 attachments.append(discordfile)
         #for attachment in message.iter_attachments():
 
-        channelid = self.get_discord_channel(message.get('to'),
-                            message.get('from'),
-                            message.get('subject'))
+        try:
+            channelid = self.get_discord_channel(message.get('to'),
+                                message.get('from'),
+                                message.get('subject'))
+        except Exception as ex:
+            print("Error retrieving channel ID using default: " + self.defaultchannelid)
 
         self.notify_discord_bot(channelid,
                             message.get('to'),
@@ -114,6 +118,9 @@ class DiscordRelayHandler(Message):
         to determine which channel ID to send a message to.
 
         """
+
+        print(f'Getting discord channel for to:{to_addr} from:{from_addr} subject:{subject}')
+
         for discord in self.discordchannels:
             if "to" in self.discordchannels[discord]:
                 # look for to regex in to_addr
@@ -128,30 +135,11 @@ class DiscordRelayHandler(Message):
                 if re.match(self.discordchannels[discord].get("subject"),subject):
                     return int(self.discordchannels[discord].get("channelid"))
         #for discord in self.discordchannels:
-        print("Returning default channel id an no rules found")
-        return int(self.discordchannels("default","channelid"))
+        print("Returning default channel id as no rules found")
+        return int(self.defaultchannelid)
         
 
     #def get_discord_channel():
-
-    def notify_discord(self, to_addr, from_addr, subject, body):
-        webhook_data = { 
-            "embeds": [
-                {
-                    "title": subject,
-                    "description": "",
-                    "fields": [
-                        self.discord_field("To",to_addr),
-                        self.discord_field("From",from_addr),
-                        self.discord_field("Subject",subject),
-                        self.discord_field("Body",body)
-                    ]
-                }
-            ]
-        }
-
-        r=requests.post(self.webhook_url,json=webhook_data)
-    #def notify_discord(self, to_addr, from_addr, subject, body):
 
     # This helper function constructs a dictionary in the format of a "field" object
     # in the Discord webhooks API
@@ -225,13 +213,12 @@ class MyClient(commands.Bot):
 def main():
     # Retrieve the environment variables
     load_dotenv()
-    WEBHOOK_URL = os.getenv('WEBHOOK_URL')
     DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
     TLS_CERT_CHAIN = os.getenv('TLS_CERT_CHAIN')
     TLS_KEY = os.getenv('TLS_KEY')
 
-    if WEBHOOK_URL is None:
-        print(f"Variable 'WEBHOOK_URL' not found")
+    if DISCORD_TOKEN is None:
+        print(f"Variable 'DISCORD_TOKEN' not found")
         exit(1)
 
     cp = ConfigParser()
@@ -256,7 +243,12 @@ def main():
             SMTP_PASSWORD = os.getenv('SMTP_PASSWORD')
             print("Override SMTP_PASSWORD from env variable")
 
-        defaultchannelid = cp.get("default","channelid")
+        try:
+            defaultchannelid = cp.get("default","channelid")
+        except:
+            print("No Default channelid set in a [default] section.  This is required.")
+            exit(1)
+
         #sets client default channel id
         client.channelid = int(defaultchannelid)
 
@@ -280,7 +272,7 @@ def main():
         print("Error loading config: " + str(ex))
         exit(1)
 
-    handler = DiscordRelayHandler(WEBHOOK_URL,client,discordchannels)
+    handler = DiscordRelayHandler(client,discordchannels, defaultchannelid)
 
     require_auth_setting = False
     require_tls_setting = False
