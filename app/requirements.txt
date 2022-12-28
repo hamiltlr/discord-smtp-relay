@@ -1,3 +1,5 @@
 requests
 aiosmtpd
 html2text
+discord.py
+python-dotenv
