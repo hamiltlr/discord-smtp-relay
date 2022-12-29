@@ -230,7 +230,7 @@ class MyClient(commands.Bot):
         channel = str(message.channel.name)
         user_message = str(message.content)
 
-        print(f'Message {user_message} by {username} on {channel}')
+        print(f'Message "{user_message}" by "{username}" on "{channel}"')
 
         if message.author == client.user:
             return
@@ -342,9 +342,6 @@ def main():
     sig = signal.sigwait([signal.SIGINT, signal.SIGQUIT])
     print("Shutting down server...")
     cont.stop()
-
-
-
 
 if __name__ == '__main__':
     intents = discord.Intents.default()
