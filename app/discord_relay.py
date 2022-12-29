@@ -1,5 +1,6 @@
 import os
 import io
+import datetime
 import re
 import ssl
 import email
@@ -86,14 +87,15 @@ class DiscordRelayHandler(Message):
 
     def notify_discord_bot(self, channelid,to_addr, from_addr, subject, body,attachments = None):
         # Set the properties fo the bot client to values that will be sent to discord.
-        print(f'Email Subject: {subject}')
+        print("Generating email at %s" % datetime.datetime.now())
+        print(f'Email Subject: "{subject}"')
         self.client.channelid = channelid
         self.client.subject = subject
         self.client.embeds = discord.Embed(title=subject,description="desc")
         self.client.embeds.add_field(name="To",value=to_addr,inline=False)
-        print(f'Email To: {to_addr}')
+        print(f'Email To: "{to_addr}"')
         self.client.embeds.add_field(name="From",value=from_addr)
-        print(f'Email From: {from_addr}')
+        print(f'Email From: "{from_addr}"')
         self.client.embeds.add_field(name="Subject",value=subject)
         if body is not None:
             chunklength = 1000
@@ -107,6 +109,7 @@ class DiscordRelayHandler(Message):
         print('Adding Attachments: %s' % len(attachments) )
         self.client.files = attachments
         
+        print('Sending email')
         #reset flag
         self.client.msg_sent = False
     #def notify_discord_bot(self, to_addr, from_addr, subject, body,attachments = None):
@@ -201,14 +204,17 @@ class MyClient(commands.Bot):
     async def timer(self):
        
         if not self.msg_sent:
+            print("Email content passed to bot for processing.")
             if self.channel is None or self.channel.id != self.channelid:
                 self.channel = client.get_channel(self.channelid)
 
+            print("Sending email: %s" % datetime.datetime.now())
             if self.embeds is not None:
                 await self.channel.send(embed=self.embeds,files=self.files)
             else:
                 await self.channel.send(self.subject,files=self.files)
             self.msg_sent = True    
+    #async def timer(self):
 
 def main():
     # Retrieve the environment variables
