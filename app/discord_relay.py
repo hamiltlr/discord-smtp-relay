@@ -192,6 +192,7 @@ class MyClient(commands.Bot):
         self.files = None
         self.channelid = None
         self.channel = None
+        self.counter = 1
         
         
 
@@ -202,19 +203,48 @@ class MyClient(commands.Bot):
 
     @tasks.loop(seconds=1)
     async def timer(self):
-       
-        if not self.msg_sent:
-            print("Email content passed to bot for processing.")
-            if self.channel is None or self.channel.id != self.channelid:
-                self.channel = client.get_channel(self.channelid)
+        try:
+            if not self.msg_sent:
+                print("Email content passed to bot for processing.")
+                if self.channel is None or self.channel.id != self.channelid:
+                    self.channel = client.get_channel(self.channelid)
 
-            print("Sending email: %s" % datetime.datetime.now())
-            if self.embeds is not None:
-                await self.channel.send(embed=self.embeds,files=self.files)
-            else:
-                await self.channel.send(self.subject,files=self.files)
-            self.msg_sent = True    
+                print("Sending email: %s" % datetime.datetime.now())
+                if self.embeds is not None:
+                    await self.channel.send(embed=self.embeds,files=self.files)
+                else:
+                    await self.channel.send(self.subject,files=self.files)
+                self.msg_sent = True 
+            #if not self.msg_sent:
+            self.counter += 1
+            if self.counter % 30:
+                print("Bot Loop %s" % datetime.datetime.now())
+                counter = 1
+        except Exception as ex:
+            print("Error in bot send: " + str(ex))
+            pass
     #async def timer(self):
+
+    async def on_message(self,message):
+        if message.author == client.user:
+            return
+
+        brooklyn_99_quotes = [
+            'I\'m the human form of the 💯 emoji.',
+            'Bingpot!',
+            (
+                'Cool. Cool cool cool cool cool cool cool, '
+                'no doubt no doubt no doubt no doubt.'
+            ),
+        ]
+
+        if message.content == "!timer":
+            print("timer status: %s " % self.timer.is_running)
+
+        if message.content == '99!':
+            response = brooklyn_99_quotes[0]
+            await message.channel.send(response)
+    #async def on_message(message):
 
 def main():
     # Retrieve the environment variables
